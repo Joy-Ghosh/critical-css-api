@@ -1,8 +1,9 @@
 const express = require('express');
 const cors = require('cors');
 const penthouse = require('penthouse');
-const axios = require('axios');  // Import axios for fetching CSS
+const axios = require('axios');
 const fs = require('fs');
+const path = require('path');  // Used for temporary file paths
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -16,24 +17,34 @@ app.post('/generate', async (req, res) => {
   }
 
   try {
-    // Step 1: Fetch the full CSS from the page URL
+    // Step 1: Fetch the full HTML from the page URL
     const { data: html } = await axios.get(url);
-    
-    // Use a regex to extract the CSS link (this can be extended for inline styles if needed)
+
+    // Use regex to extract all CSS links (you could extend this for inline styles)
     const cssUrls = [...html.matchAll(/<link.*?rel="stylesheet".*?href="(.*?)".*?>/g)].map(match => match[1]);
-    
+
     if (cssUrls.length === 0) {
       return res.status(400).json({ error: 'No CSS links found on the page' });
     }
 
-    // Step 2: Fetch the first CSS file (this can be expanded for more files)
-    const { data: css } = await axios.get(cssUrls[0]);
+    // Step 2: Fetch all CSS files (if more than one) and combine them
+    let cssData = '';
+    for (const cssUrl of cssUrls) {
+      const { data: css } = await axios.get(cssUrl);
+      cssData += css;
+    }
 
-    // Step 3: Write the CSS to a temporary file
-    const cssPath = './temp.css';
-    fs.writeFileSync(cssPath, css);
+    // Step 3: Optionally handle inline styles (if needed)
+    const inlineStyles = [...html.matchAll(/<style.*?>(.*?)<\/style>/gs)].map(match => match[1]).join('\n');
+    if (inlineStyles) {
+      cssData += inlineStyles;
+    }
 
-    // Step 4: Generate Critical CSS
+    // Step 4: Write combined CSS to a temporary file
+    const cssPath = path.join(__dirname, 'temp.css');
+    fs.writeFileSync(cssPath, cssData);
+
+    // Step 5: Generate Critical CSS
     const criticalCss = await penthouse({
       url: url,
       css: cssPath,
@@ -48,6 +59,11 @@ app.post('/generate', async (req, res) => {
     res.send(criticalCss);
 
   } catch (err) {
+    // Clean up the temp file if an error occurs
+    if (fs.existsSync(cssPath)) {
+      fs.unlinkSync(cssPath);
+    }
+
     res.status(500).json({ error: err.message });
   }
 });
