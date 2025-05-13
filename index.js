@@ -1,4 +1,6 @@
 const express = require('express');
+const cors = require('cors');
+app.use(cors());
 const penthouse = require('penthouse');
 const axios = require('axios');  // Import axios for fetching CSS
 const fs = require('fs');
