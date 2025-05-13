@@ -1,12 +1,12 @@
 const express = require('express');
 const cors = require('cors');
-app.use(cors());
 const penthouse = require('penthouse');
 const axios = require('axios');  // Import axios for fetching CSS
 const fs = require('fs');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+app.use(cors());
 app.use(express.json());
 
 app.post('/generate', async (req, res) => {
